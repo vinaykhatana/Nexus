@@ -2,33 +2,14 @@ import { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import Layout from "../components/common/Layout";
 import Modal from "../components/common/Modal";
-import CampaignForm from "../components/campaigns/CampaignForm";
 import { Edit, Trash2, Eye, TrendingUp } from "lucide-react";
-
-const initialCampaigns = [
-  { _id: "1", name: "Summer Sale 2025", status: "Active", reach: "1.2M", budget: "$12,000", roi: "320%" },
-  { _id: "2", name: "Q3 Brand Awareness", status: "Active", reach: "850k", budget: "$8,500", roi: "180%" },
-  { _id: "3", name: "Back to School Special", status: "Draft", reach: "-", budget: "$5,000", roi: "-" },
-  { _id: "4", name: "Holiday Prep", status: "Paused", reach: "2.1M", budget: "$15,000", roi: "210%" },
-  { _id: "5", name: "Retargeting - Cart", status: "Active", reach: "450k", budget: "$3,200", roi: "410%" },
-  { _id: "6", name: "Influencer Alpha", status: "Completed", reach: "300k", budget: "$4,500", roi: "150%" },
-  { _id: "7", name: "Social Media Blast", status: "Active", reach: "1.5M", budget: "$2,000", roi: "500%" },
-  { _id: "8", name: "Email Sequence: Welcome", status: "Active", reach: "50k", budget: "$800", roi: "600%" },
-  { _id: "9", name: "Webinar Signups", status: "Paused", reach: "12k", budget: "$1,200", roi: "120%" },
-  { _id: "10", name: "Competitor Conquesting", status: "Draft", reach: "-", budget: "$6,000", roi: "-" },
-];
+import api from "../utils/api";
 
 const Campaigns = () => {
-  const [campaigns, setCampaigns] = useState(() => {
-    const saved = localStorage.getItem("nexus_campaigns");
-    return saved ? JSON.parse(saved) : initialCampaigns;
-  });
-
-  useEffect(() => {
-    localStorage.setItem("nexus_campaigns", JSON.stringify(campaigns));
-  }, [campaigns]);
+  const [campaigns, setCampaigns] = useState([]);
   const { token } = useContext(AuthContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [newCampaign, setNewCampaign] = useState({
     name: "",
     budget: "",
@@ -36,24 +17,57 @@ const Campaigns = () => {
     roi: ""
   });
 
-  // 🔹 POST: Add campaign (Mock)
-  const handleAddCampaign = (e) => {
-    e.preventDefault();
-    const campaignToAdd = {
-      _id: Date.now().toString(),
-      ...newCampaign,
-      reach: "0", // Default for new
-      budget: `$${newCampaign.budget}`,
-      roi: newCampaign.roi ? `${newCampaign.roi}%` : "-"
-    };
-    setCampaigns([campaignToAdd, ...campaigns]);
-    setIsModalOpen(false);
-    setNewCampaign({ name: "", budget: "", status: "Active", roi: "" });
+  // 🔹 GET: Fetch campaigns from backend
+  useEffect(() => {
+    if (token) {
+      fetchCampaigns();
+    }
+  }, [token]);
+
+  const fetchCampaigns = async () => {
+    try {
+      const res = await api.get('/campaigns');
+      // Map backend 'title' to frontend 'name' if needed, or just use title
+      setCampaigns(res.data);
+    } catch (err) {
+      console.error("Failed to fetch campaigns", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 🔹 DELETE: Remove campaign (Mock)
+  // 🔹 POST: Add campaign
+  const handleAddCampaign = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        title: newCampaign.name, // Map name to title
+        budget: newCampaign.budget,
+        status: newCampaign.status
+        // roi and reach are not in schema, so they won't be saved unless schema updates
+        // For now we send them, but backend might ignore if not in schema.
+        // Assuming backend handles basic fields.
+      };
+
+      const res = await api.post('/campaigns', payload);
+      setCampaigns([res.data, ...campaigns]);
+      setIsModalOpen(false);
+      setNewCampaign({ name: "", budget: "", status: "Active", roi: "" });
+    } catch (err) {
+      console.error("Failed to create campaign", err);
+    }
+  };
+
+  // 🔹 DELETE: Remove campaign
   const deleteCampaign = async (id) => {
-    setCampaigns(campaigns.filter(c => c._id !== id));
+    if (window.confirm("Are you sure you want to delete this campaign?")) {
+      try {
+        await api.delete(`/campaigns/${id}`);
+        setCampaigns(campaigns.filter(c => c._id !== id));
+      } catch (err) {
+        console.error("Failed to delete campaign", err);
+      }
+    }
   };
 
   return (
@@ -67,9 +81,6 @@ const Campaigns = () => {
           Create Campaign
         </button>
       </div>
-
-      {/* Campaign Form - Hidden for now or toggleable, assuming simplified view for table focus */}
-      {/* <CampaignForm addCampaign={addCampaign} /> */}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
@@ -85,48 +96,57 @@ const Campaigns = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {campaigns.map((c) => (
-                <tr key={c._id} className="hover:bg-gray-50 transition-colors group">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${c.status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' :
-                      c.status === 'Paused' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                        c.status === 'Completed' ? 'bg-gray-100 text-gray-700 border-gray-200' :
-                          'bg-blue-50 text-blue-700 border-blue-100'
-                      }`}>
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{c.name}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1 text-sm text-gray-600">
-                      <Eye size={14} className="text-gray-400" /> {c.reach}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {c.budget}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1 text-sm font-medium text-green-600">
-                      <TrendingUp size={14} /> {c.roi}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition">
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => deleteCampaign(c._id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan="6" className="text-center py-4">Loading campaigns...</td></tr>
+              ) : campaigns.length === 0 ? (
+                <tr><td colSpan="6" className="text-center py-4">No campaigns found. Create one!</td></tr>
+              ) : (
+                campaigns.map((c) => (
+                  <tr key={c._id} className="hover:bg-gray-50 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${c.status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' :
+                        c.status === 'Paused' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                          c.status === 'Completed' ? 'bg-gray-100 text-gray-700 border-gray-200' :
+                            'bg-blue-50 text-blue-700 border-blue-100'
+                        }`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {/* Backend uses title, frontend used name. Fallback for both. */}
+                      <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{c.title || c.name}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                        {/* Reach is not in DB schema currently, showing placeholder */}
+                        <Eye size={14} className="text-gray-400" /> {c.reach || "-"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      ${c.budget}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1 text-sm font-medium text-green-600">
+                        {/* ROI is not in DB schema currently, showing placeholder */}
+                        <TrendingUp size={14} /> {c.roi || "-"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition">
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteCampaign(c._id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
