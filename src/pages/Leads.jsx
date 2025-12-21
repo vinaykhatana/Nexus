@@ -1,28 +1,31 @@
 import Layout from "../components/common/Layout";
 import Modal from "../components/common/Modal";
 import { Mail, Phone, MapPin, MoreHorizontal } from "lucide-react";
-import { useState, useEffect } from "react";
-
-const leads = [
-  { id: 1, name: "Sarah Johnson", email: "sarah.j@example.com", company: "TechFlow Inc.", role: "CTO", score: 92, status: "Hot" },
-  { id: 2, name: "Michael Chen", email: "m.chen@startups.io", company: "Startups.io", role: "Founder", score: 85, status: "Warm" },
-  { id: 3, name: "Jessica Williams", email: "jessica@designagency.com", company: "Creative Minds", role: "Art Director", score: 45, status: "Cold" },
-  { id: 4, name: "David Miller", email: "david.m@logistics.net", company: "FastTrack Logistics", role: "Operations Mgr", score: 78, status: "Warm" },
-  { id: 5, name: "Emily Davis", email: "emily.d@healthplus.org", company: "HealthPlus", role: "Marketing Lead", score: 62, status: "Warm" },
-  { id: 6, name: "Robert Wilson", email: "robert@fintech.co", company: "Nova Fintech", role: "VP Sales", score: 95, status: "Hot" },
-  { id: 7, name: "Lisa Brown", email: "lisa.b@edu.edu", company: "State University", role: "Dean", score: 30, status: "Cold" },
-  { id: 8, name: "James Taylor", email: "j.taylor@construct.com", company: "BuildIt Right", role: "Project Manager", score: 55, status: "Warm" },
-];
+import { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import api from "../utils/api";
 
 const Leads = () => {
-  const [activeLeads, setActiveLeads] = useState(() => {
-    const saved = localStorage.getItem("nexus_leads");
-    return saved ? JSON.parse(saved) : leads;
-  });
+  const [activeLeads, setActiveLeads] = useState([]);
+  const { token } = useContext(AuthContext);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    localStorage.setItem("nexus_leads", JSON.stringify(activeLeads));
-  }, [activeLeads]);
+    if (token) {
+      fetchLeads();
+    }
+  }, [token]);
+
+  const fetchLeads = async () => {
+    try {
+      const res = await api.get('/leads');
+      setActiveLeads(res.data);
+    } catch (err) {
+      console.error("Failed to fetch leads", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newLead, setNewLead] = useState({
@@ -38,17 +41,24 @@ const Leads = () => {
     return "bg-gray-400";
   }
 
-  const handleAddLead = (e) => {
+  const handleAddLead = async (e) => {
     e.preventDefault();
-    const leadToAdd = {
-      id: Date.now(),
-      ...newLead,
-      role: "Contact", // Default role
-      score: Math.floor(Math.random() * 40) + 60, // Random score 60-100 for demo
-    };
-    setActiveLeads([leadToAdd, ...activeLeads]);
-    setIsModalOpen(false);
-    setNewLead({ name: "", email: "", company: "", status: "New" });
+    try {
+      const leadToAdd = {
+        ...newLead,
+        // Backend schema primarily supports name, email, status. 
+        // Other fields like company, role, score, phone might be ignored by backend if not in schema.
+        role: "Contact",
+        score: Math.floor(Math.random() * 40) + 60,
+      };
+
+      const res = await api.post('/leads', leadToAdd);
+      setActiveLeads([res.data, ...activeLeads]);
+      setIsModalOpen(false);
+      setNewLead({ name: "", email: "", company: "", status: "New" });
+    } catch (err) {
+      console.error("Failed to add lead", err);
+    }
   };
 
   return (
@@ -76,51 +86,58 @@ const Leads = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {activeLeads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-                        {lead.name.charAt(0)}
+              {loading ? (
+                <tr><td colSpan="5" className="text-center py-4">Loading leads...</td></tr>
+              ) : activeLeads.length === 0 ? (
+                <tr><td colSpan="5" className="text-center py-4">No leads found. Add one!</td></tr>
+              ) : (
+                activeLeads.map((lead) => (
+                  <tr key={lead._id || lead.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                          {lead.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{lead.name}</p>
+                          <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <Mail size={12} /> {lead.email}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">{lead.name}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                          <Mail size={12} /> {lead.email}
-                        </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      {/* Company and role might not be saved in backend v1, using fallback or empty */}
+                      <p className="text-sm text-gray-900 font-medium">{lead.company || "-"}</p>
+                      <p className="text-xs text-gray-500">{lead.role || "Contact"}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 w-24 bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${getScoreColor(lead.score || 0)}`}
+                            style={{ width: `${lead.score || 0}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">{lead.score || 0}</span>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900 font-medium">{lead.company}</p>
-                    <p className="text-xs text-gray-500">{lead.role}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${getScoreColor(lead.score)}`}
-                          style={{ width: `${lead.score}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium text-gray-700">{lead.score}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${lead.status === 'Hot' ? 'bg-red-50 text-red-700 border-red-100' :
-                      lead.status === 'Warm' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                        'bg-gray-50 text-gray-600 border-gray-200'
-                      }`}>
-                      {lead.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${lead.status === 'Hot' ? 'bg-red-50 text-red-700 border-red-100' :
+                        lead.status === 'Warm' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                          'bg-gray-50 text-gray-600 border-gray-200'
+                        }`}>
+                        {lead.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="text-gray-400 hover:text-gray-600">
+                        <MoreHorizontal size={20} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -9,7 +9,7 @@ const ProductList = ({ products, toggleStatus, deleteProduct }) => {
     <div className="grid grid-cols-3 gap-6">
       {products.map((p) => (
         <ProductCard
-          key={p.id}
+          key={p._id || p.id}
           product={p}
           toggleStatus={toggleStatus}
           deleteProduct={deleteProduct}

@@ -13,14 +13,14 @@ const ProductCard = ({ product, toggleStatus, deleteProduct }) => {
 
       <div className="flex gap-2 mt-2">
         <button
-          onClick={() => toggleStatus(product.id)}
+          onClick={() => toggleStatus(product._id || product.id)}
           className="bg-yellow-500 text-white px-3 py-1 rounded"
         >
           Toggle
         </button>
 
         <button
-          onClick={() => deleteProduct(product.id)}
+          onClick={() => deleteProduct(product._id || product.id)}
           className="bg-red-500 text-white px-3 py-1 rounded"
         >
           Delete
