@@ -3,10 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import path from "path";
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { fileURLToPath } from "url";
 
 import campaignRoutes from "./routes/campaignRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
@@ -16,12 +13,27 @@ import matchRoutes from "./routes/matchRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
 connectDB();
 
 const app = express();
-// Allow all origins (simplest fix for deployment issues)
-app.use(cors());
+/* ✅ FIXED CORS - Allow Vercel and Localhost */
+app.use(
+  cors({
+    origin: [
+      "https://nexus-flax-psi.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:5000"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  })
+);
+
 app.use(express.json());
 
 app.use("/api/campaigns", campaignRoutes);
@@ -32,8 +44,7 @@ app.use("/api/match", matchRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/upload", uploadRoutes);
 
-// Make uploads folder static
-app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 
 app.get("/", (req, res) => {
   res.send("API Running...");
