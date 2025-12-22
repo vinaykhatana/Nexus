@@ -20,15 +20,8 @@ dotenv.config();
 connectDB();
 
 const app = express();
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://nexus-k7e36rkj2-vinay-projects-3c82d869.vercel.app"
-];
-
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+// Allow all origins (simplest fix for deployment issues)
+app.use(cors());
 app.use(express.json());
 
 app.use("/api/campaigns", campaignRoutes);
