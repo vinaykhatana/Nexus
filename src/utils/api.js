@@ -7,6 +7,10 @@ const api = axios.create({
     },
 });
 
+// Debug log to check what API URL is being used
+console.log('API Base URL:', import.meta.env.VITE_API_URL || 'http://localhost:5000/api (default)');
+
+
 // Interceptor to add token to every request
 api.interceptors.request.use(
     (config) => {

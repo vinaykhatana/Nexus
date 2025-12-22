@@ -16,7 +16,12 @@ const Login = () => {
       // Redirect to dashboard or home on success
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      console.error('Login error:', err);
+      let errorMessage = err.message;
+      if (err.message === 'Network Error') {
+        errorMessage = 'Unable to connect to server. Please check your internet connection or try again later.';
+      }
+      setError(errorMessage);
     }
   };
 
