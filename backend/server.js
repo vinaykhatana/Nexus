@@ -20,19 +20,22 @@ dotenv.config();
 connectDB();
 
 const app = express();
-/* ✅ FIXED CORS - Allow Vercel and Localhost */
+
+/* ✅ CORS CONFIG */
 app.use(
   cors({
     origin: [
       "https://nexus-flax-psi.vercel.app",
-      "http://localhost:5173",
-      "http://localhost:5000"
+      "http://localhost:5173"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
   })
 );
+
+/* ✅ IMPORTANT: handle preflight */
+app.options("*", cors());
 
 app.use(express.json());
 
