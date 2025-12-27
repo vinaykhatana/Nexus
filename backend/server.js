@@ -1,8 +1,10 @@
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import path from "path";
 import { fileURLToPath } from "url";
+
 
 import campaignRoutes from "./routes/campaignRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
@@ -20,32 +22,13 @@ connectDB();
 
 const app = express();
 
-/* ✅ PERMANENT CORS FIX */
+
 app.set("trust proxy", 1);
 
-app.use((req, res, next) => {
-  const allowedOrigins = ["http://localhost:5173", "https://nexus-flax-psi.vercel.app"];
-  const origin = req.headers.origin;
-
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
+app.use(cors({
+  origin: ["http://localhost:5173", "https://nexus-flax-psi.vercel.app"],
+  credentials: true
+}));
 
 app.use(express.json());
 
@@ -66,3 +49,6 @@ app.get("/", (req, res) => {
 app.listen(process.env.PORT, () =>
   console.log(`Server running on port ${process.env.PORT}`)
 );
+
+
+
